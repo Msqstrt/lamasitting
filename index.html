@@ -44,9 +44,6 @@
     border-radius:9px;background:var(--papier);color:var(--encre)}
   textarea{font-family:ui-monospace,Menlo,monospace;font-size:.82rem;resize:vertical}
   .duo{display:flex;gap:10px} .duo>div{flex:1}
-  .hm{display:flex;gap:6px}
-  .hm select{flex:1;font:inherit;padding:11px 8px;border:1px solid var(--trait);
-    border-radius:9px;background:var(--papier);color:var(--encre)}
   .estim{font-size:.85rem;margin-top:14px;color:var(--doux);min-height:1.2em}
   .estim b{color:var(--encre);font-variant-numeric:tabular-nums}
   .btns{display:flex;gap:10px;margin-top:14px}
@@ -125,14 +122,8 @@
       <label for="gDate">Date de la garde, celle du soir où elle commence</label>
       <input type="date" id="gDate">
       <div class="duo">
-        <div>
-          <label>Début</label>
-          <div class="hm"><select id="gDebH"></select><select id="gDebM"></select></div>
-        </div>
-        <div>
-          <label>Fin</label>
-          <div class="hm"><select id="gFinH"></select><select id="gFinM"></select></div>
-        </div>
+        <div><label for="gDeb">Début</label><input type="time" id="gDeb"></div>
+        <div><label for="gFin">Fin</label><input type="time" id="gFin"></div>
       </div>
       <div class="estim" id="gEstim"></div>
       <div class="err" id="gErr"></div>
@@ -180,7 +171,7 @@ function duree(deb,fin){
   const [h1,m1]=deb.split(':').map(Number), [h2,m2]=fin.split(':').map(Number);
   let min=(h2*60+m2)-(h1*60+m1);
   if(min<=0) min+=24*60;
-  return Math.round(min/5)*5/60;
+  return min/60;
 }
 const dateFr = iso => new Date(iso+'T12:00:00')
   .toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'});
@@ -295,28 +286,13 @@ $('bAvance').onclick=()=>ouvrir('fAvance');
 $('bGarde').onclick=()=>ouvrir('fGarde');
 document.querySelectorAll('[data-close]').forEach(b=> b.onclick=()=> $(b.dataset.close).hidden=true);
 
-/* remplit les menus déroulants */
-(function remplirSelects(){
-  const opt = (v,t) => `<option value="${v}">${t}</option>`;
-  let heures = opt('','--'), minutes = opt('','--');
-  for(let h=0; h<24; h++) heures += opt(String(h).padStart(2,'0'), String(h).padStart(2,'0')+' h');
-  for(let m=0; m<60; m+=5) minutes += opt(String(m).padStart(2,'0'), String(m).padStart(2,'0'));
-  ['gDebH','gFinH'].forEach(id => $(id).innerHTML = heures);
-  ['gDebM','gFinM'].forEach(id => $(id).innerHTML = minutes);
-})();
-
-const lire = (idH,idM) => {
-  const h=$(idH).value, m=$(idM).value;
-  return (h && m) ? h+':'+m : '';
-};
-
 function estimer(){
-  const d=lire('gDebH','gDebM'), f=lire('gFinH','gFinM');
+  const d=$('gDeb').value, f=$('gFin').value;
   if(!d||!f){ $('gEstim').textContent='Renseignez les horaires pour voir le montant.'; return; }
   const h=duree(d,f);
   $('gEstim').innerHTML=`${heuresFr(h)} de garde, soit <b>${eur(cout(h))}</b>.`;
 }
-['gDebH','gDebM','gFinH','gFinM'].forEach(id => $(id).onchange = estimer);
+$('gDeb').oninput=estimer; $('gFin').oninput=estimer;
 
 $('aOk').onclick=async()=>{
   const d=$('aDate').value, m=parseFloat($('aMontant').value);
@@ -329,14 +305,14 @@ $('aOk').onclick=async()=>{
 };
 
 $('gOk').onclick=async()=>{
-  const d=$('gDate').value, deb=lire('gDebH','gDebM'), fin=lire('gFinH','gFinM');
+  const d=$('gDate').value, deb=$('gDeb').value, fin=$('gFin').value;
   if(!d){ $('gErr').textContent='Choisissez une date.'; return; }
   if(!deb||!fin){ $('gErr').textContent="Renseignez l'heure de début et de fin."; return; }
   const h=duree(deb,fin);
   $('gOk').disabled=true;
   const ok = await ajouter({type:'garde', jour:d, debut:deb, fin, heures:h.toFixed(4), montant:cout(h).toFixed(2)});
   $('gOk').disabled=false;
-  if(ok){ ['gDebH','gDebM','gFinH','gFinM'].forEach(id=>$(id).value=''); $('fGarde').hidden=true; }
+  if(ok){ $('gDeb').value=''; $('gFin').value=''; $('fGarde').hidden=true; }
 };
 
 $('bRefresh').onclick = charger;
