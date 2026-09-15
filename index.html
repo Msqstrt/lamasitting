@@ -250,8 +250,8 @@ function rendre(){
   const v=$('val');
   v.textContent = eur(Math.abs(s));
   v.className = 'val ' + (s>0.004?'pos':s<-0.004?'neg':'');
-  $('exp').textContent = s>0.004 ? "Avances non encore consommées : elle vous doit ce montant en gardes."
-    : s<-0.004 ? "Gardes non couvertes par vos avances : vous lui devez ce montant."
+  $('exp').textContent = s>0.004 ? "Avances non encore consommées : c'est notre crédit restant de gardes."
+    : s<-0.004 ? "Gardes non couvertes par les avances : nous devons ce montant."
     : "Tout est à jour, aucune avance en cours ni garde à payer.";
 
   const l=$('liste'); l.innerHTML='';
