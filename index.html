@@ -102,8 +102,9 @@
     </div>
 
     <div class="actions">
-      <button class="primaire" id="bAvance">Noter une avance</button>
-      <button id="bGarde">Noter une garde</button>
+      <button class="primaire" id="bAvance">Avance</button>
+      <button id="bGarde">Garde</button>
+      <button id="bDepense">Dépense</button>
     </div>
 
     <form id="fAvance" hidden>
@@ -130,6 +131,18 @@
       <div class="btns">
         <button type="button" class="primaire" id="gOk">Enregistrer la garde</button>
         <button type="button" data-close="fGarde">Annuler</button>
+      </div>
+    </form>
+
+    <form id="fDepense" hidden>
+      <label for="dDate">Date de la dépense</label>
+      <input type="date" id="dDate">
+      <label for="dMontant">Montant dépensé pour vous (€)</label>
+      <input type="number" id="dMontant" inputmode="decimal" step="0.01" min="0" placeholder="35">
+      <div class="err" id="dErr"></div>
+      <div class="btns">
+        <button type="button" class="primaire" id="dOk">Enregistrer la dépense</button>
+        <button type="button" data-close="fDepense">Annuler</button>
       </div>
     </form>
 
@@ -262,7 +275,8 @@ function rendre(){
   journal.forEach(e=>{
     const li=document.createElement('li');
     const g=document.createElement('div');
-    g.innerHTML = `<div class="quoi">${e.type==='avance'?'Avance versée':'Garde'}</div>
+    const nom = e.type==='avance'?'Avance versée' : e.type==='depense'?'Dépense pour nous' : 'Garde';
+    g.innerHTML = `<div class="quoi">${nom}</div>    
       <div class="quand">${dateFr(e.jour)}${e.type==='garde'?` · ${e.debut}–${e.fin} · ${heuresFr(Number(e.heures))}`:''}</div>`;
     const sup=document.createElement('button');
     sup.className='sup'; sup.textContent='Supprimer';
@@ -277,13 +291,14 @@ function rendre(){
 
 /* ---------- formulaires ---------- */
 function ouvrir(f){
-  const autre = f==='fAvance'?'fGarde':'fAvance';
-  $(autre).hidden=true; $(f).hidden=false;
+  ['fAvance','fGarde','fDepense'].forEach(id => $(id).hidden = (id!==f));
   if(f==='fAvance'){ $('aDate').value ||= aujourdhui(); $('aErr').textContent=''; }
-  else { $('gDate').value ||= aujourdhui(); $('gErr').textContent=''; estimer(); }
+  if(f==='fGarde'){ $('gDate').value ||= aujourdhui(); $('gErr').textContent=''; estimer(); }
+  if(f==='fDepense'){ $('dDate').value ||= aujourdhui(); $('dErr').textContent=''; }
 }
 $('bAvance').onclick=()=>ouvrir('fAvance');
 $('bGarde').onclick=()=>ouvrir('fGarde');
+$('bDepense').onclick=()=>ouvrir('fDepense');
 document.querySelectorAll('[data-close]').forEach(b=> b.onclick=()=> $(b.dataset.close).hidden=true);
 
 function estimer(){
@@ -315,6 +330,16 @@ $('gOk').onclick=async()=>{
   if(ok){ $('gDeb').value=''; $('gFin').value=''; $('fGarde').hidden=true; }
 };
 
+$('dOk').onclick=async()=>{
+  const d=$('dDate').value, m=parseFloat($('dMontant').value);
+  if(!d){ $('dErr').textContent='Choisissez une date.'; return; }
+  if(!(m>0)){ $('dErr').textContent='Saisissez un montant supérieur à 0.'; return; }
+  $('dOk').disabled=true;
+  const ok = await ajouter({type:'depense', jour:d, montant:m});
+  $('dOk').disabled=false;
+  if(ok){ $('dMontant').value=''; $('fDepense').hidden=true; }
+};
+
 $('bRefresh').onclick = charger;
 
 $('bExport').onclick=()=>{
@@ -322,7 +347,7 @@ $('bExport').onclick=()=>{
   $('rErr').textContent='';
   const lignes=[['Date','Type','Debut','Fin','Heures','Montant EUR']];
   [...journal].sort((a,b)=>a.jour.localeCompare(b.jour)).forEach(e=>{
-    lignes.push([e.jour, e.type==='avance'?'Avance':'Garde', e.debut||'', e.fin||'',
+        lignes.push([e.jour, e.type==='avance'?'Avance':e.type==='depense'?'Depense':'Garde', e.debut||'', e.fin||'',
       e.type==='garde'? Number(e.heures).toFixed(2).replace('.',','):'',
       (e.type==='avance'? Number(e.montant) : -Number(e.montant)).toFixed(2).replace('.',',')]);
   });
