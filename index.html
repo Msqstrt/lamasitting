@@ -310,7 +310,7 @@ function estimer(){
 $('gDeb').oninput=estimer; $('gFin').oninput=estimer;
 
 $('aOk').onclick=async()=>{
-  const d=$('aDate').value, m=parseFloat($('aMontant').value);
+  const d=$('aDate').value, m=parseFloat(String($('aMontant').value).replace(',','.'));
   if(!d){ $('aErr').textContent='Choisissez une date.'; return; }
   if(!(m>0)){ $('aErr').textContent='Saisissez un montant supérieur à 0.'; return; }
   $('aOk').disabled=true;
@@ -331,7 +331,7 @@ $('gOk').onclick=async()=>{
 };
 
 $('dOk').onclick=async()=>{
-  const d=$('dDate').value, m=parseFloat($('dMontant').value);
+  const d=$('dDate').value, m=parseFloat(String($('dMontant').value).replace(',','.'));
   if(!d){ $('dErr').textContent='Choisissez une date.'; return; }
   if(!(m>0)){ $('dErr').textContent='Saisissez un montant supérieur à 0.'; return; }
   $('dOk').disabled=true;
