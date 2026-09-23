@@ -56,8 +56,10 @@
      padding:13px 0;border-bottom:1px solid var(--trait)}
   .quoi{font-size:.94rem} .quand{font-size:.78rem;color:var(--doux);margin-top:3px}
   .montant{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
-  .sup{background:none;border:0;color:var(--doux);font-size:.75rem;padding:4px 0 0;
-    text-decoration:underline;flex:0}
+  .note{font-size:.82rem;margin-top:5px;line-height:1.4;font-style:italic}
+  .liens{display:flex;gap:14px;margin-top:6px}
+  .lien{background:none;border:0;color:var(--doux);font-size:.75rem;padding:0;
+    text-decoration:underline;flex:0;white-space:nowrap}
   .vide{color:var(--doux);font-size:.88rem;padding:18px 0;line-height:1.5}
   .maint{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
   .maint button{font-size:.85rem;padding:11px 12px;border-color:var(--trait);color:var(--doux)}
@@ -112,6 +114,8 @@
       <input type="date" id="aDate">
       <label for="aMontant">Montant versé (€)</label>
       <input type="text" id="aMontant" inputmode="decimal" placeholder="200">
+      <label for="aNote">Commentaire (facultatif)</label>
+      <input type="text" id="aNote" placeholder="Virement, espèces…">
       <div class="err" id="aErr"></div>
       <div class="btns">
         <button type="button" class="primaire" id="aOk">Enregistrer l'avance</button>
@@ -126,6 +130,8 @@
         <div><label for="gDeb">Début</label><input type="time" id="gDeb"></div>
         <div><label for="gFin">Fin</label><input type="time" id="gFin"></div>
       </div>
+      <label for="gNote">Commentaire (facultatif)</label>
+      <input type="text" id="gNote" placeholder="Soirée chez des amis…">
       <div class="estim" id="gEstim"></div>
       <div class="err" id="gErr"></div>
       <div class="btns">
@@ -139,6 +145,8 @@
       <input type="date" id="dDate">
       <label for="dMontant">Montant dépensé pour vous (€)</label>
       <input type="text" id="dMontant" inputmode="decimal" placeholder="35,40">
+      <label for="dNote">Commentaire (facultatif)</label>
+      <input type="text" id="dNote" placeholder="Courses, pharmacie…">
       <div class="err" id="dErr"></div>
       <div class="btns">
         <button type="button" class="primaire" id="dOk">Enregistrer la dépense</button>
@@ -251,6 +259,12 @@ async function ajouter(ligne){
   $('rErr').textContent=''; await charger(); return true;
 }
 
+async function annoter(id, texte){
+  const { error } = await sb.from('mouvements').update({commentaire: texte || null}).eq('id', id);
+  if(error){ $('rErr').textContent = "Annotation impossible : " + error.message; return; }
+  $('rErr').textContent=''; await charger();
+}
+  
 async function supprimer(id){
   const { error } = await sb.from('mouvements').delete().eq('id', id);
   if(error){ $('rErr').textContent = "Suppression impossible : " + error.message; return; }
@@ -276,12 +290,33 @@ function rendre(){
     const li=document.createElement('li');
     const g=document.createElement('div');
     const nom = e.type==='avance'?'Avance versée' : e.type==='depense'?'Dépense pour nous' : 'Garde';
-    g.innerHTML = `<div class="quoi">${nom}</div>    
+    g.innerHTML = `<div class="quoi">${nom}</div>
       <div class="quand">${dateFr(e.jour)}${e.type==='garde'?` · ${e.debut}–${e.fin} · ${heuresFr(Number(e.heures))}`:''}</div>`;
+
+    if(e.commentaire){
+      const n=document.createElement('div');
+      n.className='note'; n.textContent=e.commentaire;
+      g.appendChild(n);
+    }
+
+    const liens=document.createElement('div');
+    liens.className='liens';
+
+    const note=document.createElement('button');
+    note.className='lien';
+    note.textContent = e.commentaire ? 'Modifier la note' : 'Ajouter une note';
+    note.onclick=()=>{
+      const t = window.prompt('Commentaire pour cette ligne :', e.commentaire || '');
+      if(t===null) return;
+      annoter(e.id, t.trim());
+    };
+
     const sup=document.createElement('button');
-    sup.className='sup'; sup.textContent='Supprimer';
+    sup.className='lien'; sup.textContent='Supprimer';
     sup.onclick=()=>supprimer(e.id);
-    g.appendChild(sup);
+
+    liens.append(note,sup);
+    g.appendChild(liens);
     const m=document.createElement('div');
     m.className='montant '+(e.type==='avance'?'pos':'neg');
     m.textContent=(e.type==='avance'?'+':'−')+' '+eur(Number(e.montant));
@@ -309,14 +344,16 @@ function estimer(){
 }
 $('gDeb').oninput=estimer; $('gFin').oninput=estimer;
 
+const note = id => { const t=$(id).value.trim(); return t || null; };
+  
 $('aOk').onclick=async()=>{
   const d=$('aDate').value, m=parseFloat(String($('aMontant').value).replace(',','.'));
   if(!d){ $('aErr').textContent='Choisissez une date.'; return; }
   if(!(m>0)){ $('aErr').textContent='Saisissez un montant supérieur à 0.'; return; }
   $('aOk').disabled=true;
-  const ok = await ajouter({type:'avance', jour:d, montant:m});
+  const ok = await ajouter({type:'avance', jour:d, montant:m, commentaire:note('aNote')});
   $('aOk').disabled=false;
-  if(ok){ $('aMontant').value=''; $('fAvance').hidden=true; }
+  if(ok){ $('aMontant').value=''; $('aNote').value=''; $('fAvance').hidden=true; }
 };
 
 $('gOk').onclick=async()=>{
@@ -325,9 +362,10 @@ $('gOk').onclick=async()=>{
   if(!deb||!fin){ $('gErr').textContent="Renseignez l'heure de début et de fin."; return; }
   const h=duree(deb,fin);
   $('gOk').disabled=true;
-  const ok = await ajouter({type:'garde', jour:d, debut:deb, fin, heures:h.toFixed(4), montant:cout(h).toFixed(2)});
+  const ok = await ajouter({type:'garde', jour:d, debut:deb, fin, heures:h.toFixed(4),
+    montant:cout(h).toFixed(2), commentaire:note('gNote')});
   $('gOk').disabled=false;
-  if(ok){ $('gDeb').value=''; $('gFin').value=''; $('fGarde').hidden=true; }
+  if(ok){ $('gDeb').value=''; $('gFin').value=''; $('gNote').value=''; $('fGarde').hidden=true; }
 };
 
 $('dOk').onclick=async()=>{
@@ -335,9 +373,9 @@ $('dOk').onclick=async()=>{
   if(!d){ $('dErr').textContent='Choisissez une date.'; return; }
   if(!(m>0)){ $('dErr').textContent='Saisissez un montant supérieur à 0.'; return; }
   $('dOk').disabled=true;
-  const ok = await ajouter({type:'depense', jour:d, montant:m});
+  const ok = await ajouter({type:'depense', jour:d, montant:m, commentaire:note('dNote')});
   $('dOk').disabled=false;
-  if(ok){ $('dMontant').value=''; $('fDepense').hidden=true; }
+  if(ok){ $('dMontant').value=''; $('dNote').value=''; $('fDepense').hidden=true; }
 };
 
 $('bRefresh').onclick = charger;
@@ -345,13 +383,15 @@ $('bRefresh').onclick = charger;
 $('bExport').onclick=()=>{
   if(!journal.length){ $('rErr').textContent="Rien à exporter pour l'instant."; return; }
   $('rErr').textContent='';
-  const lignes=[['Date','Type','Debut','Fin','Heures','Montant EUR']];
+   const propre = t => String(t||'').replace(/[;\n\r]/g,' ');
+  const lignes=[['Date','Type','Debut','Fin','Heures','Montant EUR','Commentaire']];
   [...journal].sort((a,b)=>a.jour.localeCompare(b.jour)).forEach(e=>{
-        lignes.push([e.jour, e.type==='avance'?'Avance':e.type==='depense'?'Depense':'Garde', e.debut||'', e.fin||'',
+    lignes.push([e.jour, e.type==='avance'?'Avance':e.type==='depense'?'Depense':'Garde', e.debut||'', e.fin||'',
       e.type==='garde'? Number(e.heures).toFixed(2).replace('.',','):'',
-      (e.type==='avance'? Number(e.montant) : -Number(e.montant)).toFixed(2).replace('.',',')]);
+      (e.type==='avance'? Number(e.montant) : -Number(e.montant)).toFixed(2).replace('.',','),
+      propre(e.commentaire)]);
   });
-  lignes.push(['Solde','','','','',solde().toFixed(2).replace('.',',')]);
+  lignes.push(['Solde','','','','',solde().toFixed(2).replace('.',','),'']);
   $('csv').value = lignes.map(l=>l.join(';')).join('\n');
   $('fExport').hidden=false;
   $('csv').scrollIntoView({block:'center',behavior:'smooth'});
